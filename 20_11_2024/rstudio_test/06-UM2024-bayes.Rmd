@@ -1,0 +1,153 @@
+---
+title: "Uczenie maszynowe"
+date: "20.11.2024"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    df_print: paged
+  html_notebook: default
+---
+
+# Klasyfikacja probabilistyczna
+```{r}
+library(tidyverse)
+options(jupyter.rich_display=FALSE,
+        repr.plot.width=15,
+        repr.plot.height=8)
+```
+
+## Naiwny klasyfikator Bayesa
+
+Zapoznaj się z materiałami dostępnymi w [Przewodniku po pakiecie R](http://pbiecek.github.io/Przewodnik/Predykcja/naiwny_bayes.html) oraz [RPubs](https://rpubs.com/mmazurek/322903) oraz wykonaj samodzielnie w RStudio omawiane w nich przykłady. Następnie wykorzystaj naiwny klasyfikator Bayesa do rozwiązania problemu klasyfikacji wiadomości e-mail.
+
+1. Zaimportuj (`read_csv`) i wyświetl (funkcja `head`) dane z pliku `email.csv`
+
+```{r}
+emails = read_csv("../data/email.csv")
+```
+```{r}
+head(emails)
+```
+```{r}
+dim(emails)
+```
+
+
+2. Przekształć zmienną `message_label` do typu kategorialnego.
+
+```{r}
+emails <- dplyr::mutate(emails, message_label=as.factor(message_label))
+class(emails$message_label)
+```
+```{r}
+emails %>%
+    group_by(message_label) %>%
+    count(name = "count")
+    # mutate(count = count/nrow(emails))
+```
+
+3. Za pomocą funkcji `gather` przekształć zbiór danych tak, aby zamiast kolumny z częstością dla każdego wyrazu mieć dwie kolumny: jedną z wyrazem, drugą z częstością
+
+```{r include=TRUE, eval=FALSE}
+email %>%
+  gather(word, count, -message_index, -message_label)
+```
+
+4. Pogrupuj dane według `word`, sumując zmienną `count` (sumę nazwij `occurence`) i posortuj wynik w malejącej kolejności `occurence`. Użyj funkcji `slice` do wyświetlenia tylko 10 wyrazów o najwyższej wartości `occurence`.
+
+```{r}
+
+```
+
+5. W podobny sposób sprawdź, jakie 10 wyrazów pojawia się w zwykłych wiadomościach, a jakie w wiadomościach spam.
+
+```{r}
+
+```
+
+6. Podziel dane na zbiory treningowy i testowy, stosując proporcję 75:25. Następnie wyświetl rozkłady klas dla wszystkich zbiorów danych (`prop.table`).
+
+```{r}
+
+```
+
+7. Zbuduj naiwny model Bayesa za pomocą funkcji `naiveBayes`.
+
+```{r}
+library(e1071)
+
+```
+
+8. Oceń jak dobrze model radzi sobie z przewidywaniem, czy email w danych testowych to spam, czy zwykła wiadomość (funkcja `predict`, a następnie obliczenie dokładności predykcji modelu w oparciu o wartości macierzy pomyłek).
+
+```{r}
+# prawdopodobieństwa że mail jest zwykły lub spam
+
+
+# wyniki klasyfikacji
+
+
+# macierz pomyłek
+
+
+# Dokładność predykcji
+
+```
+
+9. Odpowiedz na pytanie: w jaki sposób moglibyśmy zwiększyć dokładność predykcji?
+
+```{r include=FALSE}
+# więcej przykładów treningowych
+```
+
+## Sieć Bayesa
+
+Jednym z najpopularniejszych pakietów R dla sieci Bayesa jest `bnlearn`. Zawiera on wiele różnych algorytmów uczenia SB i wnioskowania oraz zestawy danych.
+
+### Przykład
+
+Jako przykład wykorzystamy zbiór `coronary` z pakietu `bnlearn`, zawierający prawdopodobne czynniki ryzyka zakrzepicy. Zmienne:
+
+- Smoking - palenie (poziomy: 'no', 'yes')
+- M. Work - wytężona praca umysłowa (poziomy: 'no', 'yes')
+- P. Work - wytężona praca fizyczna (poziomy: 'no', 'yes')
+- Pressure - ciśnienie skurczowe krwi (poziomy: '<140', '>140')
+- Proteins - stosunek lipoprotein alfa i beta (poziomy: '<3', '>3')
+- Family - występowanie choroby niedokrwiennej w rodzinie (poziomy: 'neg', 'pos')
+
+```{r include=TRUE, eval=FALSE}
+# załadowanie danych
+library(bnlearn)
+data(coronary)
+```
+
+Utworzenie i wizualizacja sieci Bayesa
+
+```{r include=TRUE, eval=FALSE}
+bn_df <- data.frame(coronary)
+res <- hc(bn_df)
+plot(res)
+```
+
+Nie wszystkie powstałe powiązania mają sens (np. `Family` jako warunek `M. Work`). Modyfikacja struktury sieci:
+
+```{r include=TRUE, eval=FALSE}
+res$arcs <- res$arcs[-which((res$arcs[,'from'] == "M..Work" & 
+                               res$arcs[,'to'] == "Family")),]
+```
+
+Następnym krokiem po zapoznaniu się ze strukturą sieci, jest znalezienie tablic prawdopodobieństwa warunkowego (CPT) w każdym węźle. Służy do tego funkcja `bn.fit`. Następnie za pomocą funkcji `print` można podejrzeć co znajduje się w węźle `Protein`:
+
+```{r include=TRUE, eval=FALSE}
+fittedbn <- bn.fit(res, data = bn_df)
+print(fittedbn$Proteins)
+```
+
+Tak przygotowaną sieć możemy wykorzystać do wnioskowania. Na przykład móżemy znaleźć odpowiedź na pytanie: Jakie jest prawdopodobieństwo, że osoba niepaląca z ciśnieniem >140, będzie miała poziom białek <3?
+
+```{r include=TRUE, eval=FALSE}
+cpquery(fittedbn, event = (Proteins=="<3"), evidence = ((Smoking=="no") & 
+                                                          (Pressure == ">140")))
+```
